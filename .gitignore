@@ -1,0 +1,15 @@
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+results/
+!results/.gitkeep
+*.log
+.venv/
+.snakemake/
+# generated test outputs — keep .ref.csv and .toml, ignore transient .csv
+tests/cases/*.csv
+!tests/cases/*.ref.csv
