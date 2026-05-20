@@ -23,7 +23,15 @@ Output scalars
 --------------
 - l2_error_zoi  : consistent-mass L2 norm of (u_model1 - u_exact) on ZOI [0, x_start]
 - l2_relative   : l2_error_zoi / L2-norm of u_exact on the same ZOI
+
+Optional plot
+-------------
+If the environment variable ``CSMA_PLOT=1`` is set, a comparison figure of the
+displacement fields (Arlequin model 1, Arlequin model 2, analytical solution)
+is written to ``results/figures/analytical_arlequin_homo_default.png``.
+The validation CSV itself is *not* affected.
 """
+import os
 from pathlib import Path
 
 import numpy as np
@@ -91,6 +99,9 @@ C2 = compute_coupling(lag_mesh, mesh2, param_h1=H1_COEFF)
 lhs, rhs = build_full_system(Kc1, Kc2, fc1, fc2, C1, C2)
 sol      = np.linalg.solve(lhs, rhs)
 u_model1 = sol[: mesh1["nb_nodes"]].flatten()
+# Model 2 displacement field — offset = nb_nodes_1 + nb_dirichlet_dofs_model1
+start_dof2 = mesh1["nb_nodes"] + 1  # 1 fixed dof on model 1 ([0])
+u_model2 = sol[start_dof2 : start_dof2 + mesh2["nb_nodes"]].flatten()
 
 # ---------------------------------------------------------------------------
 # Analytical solution on model 1 nodes
@@ -122,3 +133,48 @@ np.savetxt(
     comments="",
 )
 print(f"[arlequin_homo] l2_error={l2_error:.6e}  l2_rel={l2_rel:.3e}  wrote {out}")
+
+# ---------------------------------------------------------------------------
+# Optional comparison plot (CSMA_PLOT=1)
+# ---------------------------------------------------------------------------
+if os.environ.get("CSMA_PLOT") == "1":
+    import matplotlib
+
+    matplotlib.use("Agg")  # non-interactive backend (CI-safe)
+    import matplotlib.pyplot as plt
+
+    x_fine = np.linspace(0.0, BEAM_LENGTH, 401)
+    u_exact_full = LOAD * x_fine * (BEAM_LENGTH - x_fine) / (2.0 * YOUNG)
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+    ax.plot(
+        x_fine, u_exact_full,
+        color="black", linewidth=1.2,
+        label=r"Solution analytique $u(x)=qx(L-x)/(2E)$",
+    )
+    ax.plot(
+        mesh1["coords"], u_model1,
+        color="tab:blue", linewidth=1.5, marker="o", markersize=5,
+        label="Arlequin — modèle 1 [0, 0.5]",
+    )
+    ax.plot(
+        mesh2["coords"], u_model2,
+        color="tab:red", linewidth=1.5, marker="s", markersize=5,
+        label="Arlequin — modèle 2 [0.3, 1.0]",
+    )
+    ax.axvspan(
+        X_START, X_END,
+        color="gray", alpha=0.12, label="Zone de recouvrement",
+    )
+    ax.set_xlabel("x [m]")
+    ax.set_ylabel("u [m]")
+    ax.set_title("analytical_arlequin_homo_default — Arlequin homo vs analytique")
+    ax.grid(True, linestyle="--", alpha=0.5)
+    ax.legend(loc="best", fontsize=9)
+
+    fig_dir = Path(__file__).resolve().parents[2] / "results" / "figures"
+    fig_dir.mkdir(parents=True, exist_ok=True)
+    fig_path = fig_dir / "analytical_arlequin_homo_default.png"
+    fig.savefig(fig_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[arlequin_homo] plot wrote {fig_path}")

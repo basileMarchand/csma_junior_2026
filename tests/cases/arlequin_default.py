@@ -19,7 +19,15 @@ Output scalars
                       normalised by x_end = 0.5.
 - u_max_model1      : max |u| on model 1
 - u_max_model2      : max |u| on model 2
+
+Optional plot
+-------------
+If the environment variable ``CSMA_PLOT=1`` is set, a comparison figure of the
+displacement fields (Arlequin model 1, Arlequin model 2, monolithic reference)
+is written to ``results/figures/arlequin_default.png``. The validation CSV
+itself is *not* affected, so reference oracles remain valid.
 """
+import os
 from pathlib import Path
 
 import numpy as np
@@ -157,3 +165,45 @@ np.savetxt(
     comments="",
 )
 print(f"[arlequin] error={error:.6e}  wrote {out}")
+
+# ---------------------------------------------------------------------------
+# Optional comparison plot (CSMA_PLOT=1)
+# ---------------------------------------------------------------------------
+if os.environ.get("CSMA_PLOT") == "1":
+    import matplotlib
+
+    matplotlib.use("Agg")  # non-interactive backend (CI-safe)
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+    ax.plot(
+        mesh_ref["coords"], u_ref,
+        color="black", linewidth=1.2,
+        label="Référence monolithique (hétérogène fin)",
+    )
+    ax.plot(
+        mesh1["coords"], u_model1,
+        color="tab:blue", linewidth=1.5, marker="o", markersize=3, markevery=20,
+        label="Arlequin — modèle 1 (hétérogène)",
+    )
+    ax.plot(
+        mesh2["coords"], u_model2,
+        color="tab:red", linewidth=1.5, marker="s", markersize=3, markevery=10,
+        label="Arlequin — modèle 2 (homogénéisé)",
+    )
+    ax.axvspan(
+        X_START_COUPLING, X_END_COUPLING,
+        color="gray", alpha=0.12, label="Zone de recouvrement",
+    )
+    ax.set_xlabel("x [m]")
+    ax.set_ylabel("u [m]")
+    ax.set_title("arlequin_default — champ de déplacement Arlequin vs référence")
+    ax.grid(True, linestyle="--", alpha=0.5)
+    ax.legend(loc="best", fontsize=9)
+
+    fig_dir = Path(__file__).resolve().parents[2] / "results" / "figures"
+    fig_dir.mkdir(parents=True, exist_ok=True)
+    fig_path = fig_dir / "arlequin_default.png"
+    fig.savefig(fig_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[arlequin] plot wrote {fig_path}")

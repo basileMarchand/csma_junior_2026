@@ -15,7 +15,14 @@ Output scalars
 --------------
 - u_max_heter : max |u| for the heterogeneous FE solution
 - u_max_homo  : max |u| for the homogenized FE solution
+
+Optional plot
+-------------
+If the environment variable ``CSMA_PLOT=1`` is set, a comparison figure of the
+displacement fields (heterogeneous vs homogenised) is written to
+``results/figures/monolithic_default.png``. The validation CSV is *not* affected.
 """
+import os
 from pathlib import Path
 
 import numpy as np
@@ -83,3 +90,36 @@ np.savetxt(
     comments="",
 )
 print(f"[monolithic] wrote {out}")
+
+# ---------------------------------------------------------------------------
+# Optional comparison plot (CSMA_PLOT=1)
+# ---------------------------------------------------------------------------
+if os.environ.get("CSMA_PLOT") == "1":
+    import matplotlib
+
+    matplotlib.use("Agg")  # non-interactive backend (CI-safe)
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+    ax.plot(
+        mesh["coords"], u_heter,
+        color="tab:blue", linewidth=1.0,
+        label="Solution hétérogène (fine)",
+    )
+    ax.plot(
+        mesh["coords"], u_homo,
+        color="tab:red", linewidth=1.5, linestyle="--",
+        label=f"Solution homogénéisée (E* = {E_HOMO:.3e} MPa)",
+    )
+    ax.set_xlabel("x [m]")
+    ax.set_ylabel("u [m]")
+    ax.set_title("monolithic_default — hétérogène vs homogénéisé")
+    ax.grid(True, linestyle="--", alpha=0.5)
+    ax.legend(loc="best", fontsize=9)
+
+    fig_dir = Path(__file__).resolve().parents[2] / "results" / "figures"
+    fig_dir.mkdir(parents=True, exist_ok=True)
+    fig_path = fig_dir / "monolithic_default.png"
+    fig.savefig(fig_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[monolithic] plot wrote {fig_path}")
