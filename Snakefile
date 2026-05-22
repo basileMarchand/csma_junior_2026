@@ -19,10 +19,12 @@ rule all:
 
 rule run_rve:
     """Run a single Arlequin study for a given RVE size."""
+    input: 
+        "workflows/run_parametric.py",
     output:
         "results/parametric/error_{rve_size}.csv",
     shell:
-        "python -m workflows.run_parametric "
+        "python workflows/run_parametric.py "
         "--rve-length {wildcards.rve_size} "
         "--output {output}"
 
